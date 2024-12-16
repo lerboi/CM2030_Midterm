@@ -59,9 +59,9 @@ function setup() {
   ballDiameter = tableWidth / 36;
   pocketSize = ballDiameter * 1.5;
   
-  // Initialize D zone parameters - Updated for 8-ball pool
-  dZoneRadius = tableWidth / 4;  // Adjusted radius
-  baulkLineY = height/2;         // Center line of the table
+  // D zone positions
+  dZoneRadius = tableWidth / 4;  
+  baulkLineY = height/2;         
   
   createTableBounds();
   createPockets();
@@ -82,11 +82,10 @@ function draw() {
     if (keyIsDown(RIGHT_ARROW)) {
       cueAngle += angleStep;
     }
-    // Keep angle between 0 and 2π
     cueAngle = cueAngle % TWO_PI;
   }
   
-  // Check if shot has completed
+  // Check if shot completed
   if (shotInProgress && isBallStopped()) {
     shotInProgress = false;
     isCueing = true;
@@ -99,32 +98,31 @@ function draw() {
 }
 
 function drawTable() {
-  // Main table
   push();
   translate(width/2, height/2);
-  fill(34, 139, 34); // Green table
+  fill(34, 139, 34)
   rect(-tableWidth/2, -tableHeight/2, tableWidth, tableHeight);
   
   // Draw D zone line
   stroke(255);
   strokeWeight(2);
-  line(-tableWidth/4, -tableHeight/2, -tableWidth/4, tableHeight/2);
+  line(-tableWidth/4, -tableHeight/2, -tableWidth/4, tableHeight/2)
   
   // Draw pockets
   fill(0);
-  circle(-tableWidth/2, -tableHeight/2, pocketSize); // Top left
-  circle(tableWidth/2, -tableHeight/2, pocketSize);  // Top right
-  circle(-tableWidth/2, tableHeight/2, pocketSize);  // Bottom left
-  circle(tableWidth/2, tableHeight/2, pocketSize);   // Bottom right
-  circle(0, -tableHeight/2, pocketSize);            // Top middle
-  circle(0, tableHeight/2, pocketSize);             // Bottom middle
+  circle(-tableWidth/2, -tableHeight/2, pocketSize) 
+  circle(tableWidth/2, -tableHeight/2, pocketSize)  
+  circle(-tableWidth/2, tableHeight/2, pocketSize)  
+  circle(tableWidth/2, tableHeight/2, pocketSize)  
+  circle(0, -tableHeight/2, pocketSize)            
+  circle(0, tableHeight/2, pocketSize)             
   
   pop();
 }
 
 function initializeBalls() {
   console.log("initializeBalls() called");
-  // Clear existing balls from world if any exist
+  // Clear existing balls
   balls.forEach(ball => {
     if (ball.body) Matter.World.remove(world, ball.body);
   });
@@ -173,7 +171,7 @@ function initializeBalls() {
   };
   Matter.World.add(world, cueBall.body);
   
-  // Set initial positions
+  // Set starting positions
   setStartingPositions();
 }
 
@@ -322,8 +320,8 @@ function respotCueBall() {
   console.log("respotCueBall() called");
   // Place cue ball in the middle of the D zone
   Matter.Body.setPosition(cueBall.body, {
-    x: width/2 - tableWidth/3,  // Positioned in the left quarter
-    y: height/2                 // Vertically centered
+    x: width/2 - tableWidth/3,  
+    y: height/2                 
   });
   Matter.Body.setVelocity(cueBall.body, { x: 0, y: 0 });
 }
@@ -340,7 +338,7 @@ function respotColoredBall(ball) {
   ];
   
   const index = balls.indexOf(ball);
-  const spotPosition = colorPositions[index - 15]; // Subtract red balls count
+  const spotPosition = colorPositions[index - 15]; 
   
   Matter.Body.setPosition(ball.body, spotPosition);
   Matter.Body.setVelocity(ball.body, { x: 0, y: 0 });
@@ -356,7 +354,7 @@ function drawCue() {
   let power = defaultPower;
   if (isDragging && dragStartPos) {
     let dragDistance = dist(mouseX, mouseY, dragStartPos.x, dragStartPos.y);
-    power = constrain(dragDistance / 100, 0, 1); // Normalize power between 0 and 1
+    power = constrain(dragDistance / 100, 0, 1); 
     cuePower = power * maxPower;
   }
   
@@ -366,12 +364,12 @@ function drawCue() {
   
   // Draw cue stick
   strokeWeight(cueStickWidth);
-  stroke(139, 69, 19); // Brown color for cue stick
-  let cueOffset = ballDiameter/2 + power * 50; // Offset increases with power
+  stroke(139, 69, 19); 
+  let cueOffset = ballDiameter/2 + power * 50; 
   line(cueOffset, 0, cueOffset + cueStickLength, 0);
   
   // Add highlight effect
-  stroke(210, 180, 140, 100); // Lighter brown for highlight
+  stroke(210, 180, 140, 100);
   strokeWeight(2);
   line(cueOffset, -2, cueOffset + cueStickLength, -2);
   
@@ -415,7 +413,7 @@ function mousePressed() {
     isDragging = true;
     dragStartPos = createVector(mouseX, mouseY);
   } else if (isInsideDZone(mouseX, mouseY)) {
-    // Allow placing the cue ball in the D zone
+    // Allow placing the cue ball in D zone
     Matter.Body.setPosition(cueBall.body, { x: mouseX, y: mouseY });
     Matter.Body.setVelocity(cueBall.body, { x: 0, y: 0 });
   }
@@ -504,19 +502,19 @@ function drawBalls() {
   balls.forEach(ball => {
     push();
     translate(ball.body.position.x, ball.body.position.y);
-    rotate(ball.body.angle); // Rotate based on physics angle
+    rotate(ball.body.angle); 
     
     // Draw ball
     fill(ball.color);
     circle(0, 0, ballDiameter);
     
-    // Add a small dot to visualize rotation
+    // Add a small dot (for visualisation)
     fill(255);
     circle(0, -ballDiameter/4, 3);
     pop();
   });
   
-  // Draw cue ball with rotation
+  // Draw cue ball with rotation (feature)
   push();
   translate(cueBall.body.position.x, cueBall.body.position.y);
   rotate(cueBall.body.angle);
@@ -531,19 +529,15 @@ function createTableBounds() {
   console.log("createTableBounds() called");
   let cushionOptions = {
     isStatic: true,
-    restitution: 0.8, // Adjusted restitution for cushions
+    restitution: 0.8, 
     friction: 0.1
   };
   
-  // Create cushions (table bounds)
+  // Create cushions
   cushions = [
-    // Top cushion
     Matter.Bodies.rectangle(width/2, height/2 - tableHeight/2, tableWidth, 10, cushionOptions),
-    // Bottom cushion
     Matter.Bodies.rectangle(width/2, height/2 + tableHeight/2, tableWidth, 10, cushionOptions),
-    // Left cushion
     Matter.Bodies.rectangle(width/2 - tableWidth/2, height/2, 10, tableHeight, cushionOptions),
-    // Right cushion
     Matter.Bodies.rectangle(width/2 + tableWidth/2, height/2, 10, tableHeight, cushionOptions)
   ];
   

@@ -3,12 +3,12 @@ Check: Ensure there are no console errors. If there are errors, please share the
 
 2. Program is usable
 Check: Ensure the controls are intuitive. If you find any confusing behavior, let me know.
+
 3. Pool table drawn
 Check: Verify the table is drawn with details like cushions and pockets. If not, ensure the drawTable function is correctly implemented.
-4. Bouncing implemented for the cushions
 
-- **Implementation:**
-  ```javascript
+4. Bouncing implemented for the cushions
+  
   function createTableBounds() {
     console.log("createTableBounds() called");
     let cushionOptions = {
@@ -31,12 +31,10 @@ Check: Verify the table is drawn with details like cushions and pockets. If not,
     
     cushions.forEach(cushion => Matter.World.add(world, cushion));
   }
-  ```
+  
 
 5. Bouncing implemented for the balls
-
-- **Implementation:** Ensure each ball has a restitution value.
-  ```javascript
+  
   let ball = {
     body: Matter.Bodies.circle(0, 0, ballDiameter/2, {
       restitution: 0.9, // Bouncy collisions
@@ -46,12 +44,10 @@ Check: Verify the table is drawn with details like cushions and pockets. If not,
     }),
     color: '#FF0000'
   };
-  ```
+  
 
 6. Physics implemented for the cue
-
-- **Implementation:** Ensure the cue applies force using `Matter.Body.applyForce`.
-  ```javascript
+  
   function shootCueBall() {
     console.log("shootCueBall() called");
     const forceMagnitude = cuePower * 0.015;
@@ -62,41 +58,34 @@ Check: Verify the table is drawn with details like cushions and pockets. If not,
     
     Matter.Body.applyForce(cueBall.body, cueBall.body.position, force);
   }
-  ```
+  
 
 7. Balls have the necessary friction
-
-- **Implementation:** Ensure friction is set for each ball.
-  ```javascript
+  
   friction: 0.005,
   frictionAir: 0.01,
-  ```
+  
 
 8. Red balls are removed from the array when in pockets
-
-- **Implementation:** Ensure red balls are removed in `handlePocketCollision`.
-  ```javascript
+  
   if (pottedBall.color === '#FF0000') {
     Matter.World.remove(world, ball);
     balls = balls.filter(b => b.body !== ball);
   }
-  ```
+  
 
 9. Cue drawn on screen using mouse and/or key interaction
 Check: Ensure the cue is drawn and can be controlled.
+
 10. Cue manipulated using mouse/key interaction
 Check: Ensure the cue can be aimed and shot using mouse or keyboard.
+
 11. Cue has the necessary speed limit
-
-- **Implementation:** Ensure the cue ball's speed is capped.
-  ```javascript
+  
   const forceMagnitude = constrain(cuePower * 0.015, minForce, maxForce);
-  ```
-
+  
 12. Table starts in three modes
-
-- **Implementation:** Ensure keys 1, 2, and 3 load different modes.
-  ```javascript
+  
   function keyPressed() {
     if (key === '1') {
       setStartingPositions();
@@ -106,14 +95,13 @@ Check: Ensure the cue can be aimed and shot using mouse or keyboard.
       randomizeRedBalls();
     }
   }
-  ```
+  
 
 13. 1st mode: all balls in place as in starting position
 Check: Ensure pressing '1' sets the balls in their initial positions.
+
 14. 2nd mode: random algorithm for all balls excluding the cue ball
 
-- **Implementation:** Ensure pressing '2' randomizes all balls.
-  ```javascript
   function randomizeAllBalls() {
     balls.forEach(ball => {
       Matter.Body.setPosition(ball.body, {
@@ -122,12 +110,10 @@ Check: Ensure pressing '1' sets the balls in their initial positions.
       });
     });
   }
-  ```
+  
 
 15. 3rd mode: random allocation of red balls, colored balls intact
 
-- **Implementation:** Ensure pressing '3' randomizes only red balls.
-  ```javascript
   function randomizeRedBalls() {
     redBalls.forEach(ball => {
       Matter.Body.setPosition(ball.body, {
@@ -136,14 +122,13 @@ Check: Ensure pressing '1' sets the balls in their initial positions.
       });
     });
   }
-  ```
+  
 
 16. Cue ball to be inserted using constraints
 Check: Ensure the cue ball can be placed in the D zone.
-17. Cue ball returned if potted
 
-- **Implementation:** Ensure the cue ball is repositioned if potted.
-  ```javascript
+17. Cue ball returned if potted
+  
   function respotCueBall() {
     Matter.Body.setPosition(cueBall.body, {
       x: width/2 - tableWidth/3,
@@ -151,12 +136,10 @@ Check: Ensure the cue ball can be placed in the D zone.
     });
     Matter.Body.setVelocity(cueBall.body, { x: 0, y: 0 });
   }
-  ```
+  
 
 18. Colored balls returned to original location if potted
-
-- **Implementation:** Ensure colored balls are re-spotted if potted.
-  ```javascript
+  
   function respotColoredBall(ball) {
     const colorPositions = [
       { x: width/2 - tableWidth/4, y: baulkLineY },  // Yellow
@@ -173,11 +156,10 @@ Check: Ensure the cue ball can be placed in the D zone.
     Matter.Body.setPosition(ball.body, spotPosition);
     Matter.Body.setVelocity(ball.body, { x: 0, y: 0 });
   }
-  ```
+  
 
 19. Error prompt for two colored balls potted
-- **Implementation:** Ensure an error message is shown if two colored balls are potted consecutively.
-  ```javascript
+
   function handleBallCollision(collidedBall) {
     if (lastCollidedBall && lastCollidedBall.color !== '#FF0000' && 
         collidedBall.color !== '#FF0000') {
@@ -186,11 +168,13 @@ Check: Ensure the cue ball can be placed in the D zone.
     
     lastCollidedBall = collidedBall;
   }
-  ```
+  
 
 20. Collision detection of cue ball
 Check: Ensure collisions involving the cue ball are detected.
+
 21. Code presentation
 Check: Review the code for proper indentation, whitespace, comments, and variable naming.
+
 22. Code competency
 Check: Ensure the code is organized with reusable functions.
