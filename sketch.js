@@ -25,8 +25,6 @@ let maxPower = 20;
 let isCueing = false;
 
 let lastCollidedBall = null;
-
-// Add these variables at the top with other declarations
 let cueStickLength = 150;
 let minPower = 0.1;
 let dragStartPos = null;
@@ -35,7 +33,7 @@ let cueStickColor;
 let cueStickWidth = 8;
 let powerIndicatorHeight = 100;
 let powerIndicatorWidth = 15;
-let angleStep = 0.003;  
+let angleStep = 0.009;  
 let keyboardControl = false;
 let arrowKeyPressed = false;
 let shotInProgress = false;
@@ -43,6 +41,11 @@ let defaultPower = 10;
 let minForce = 0.1;
 let maxForce = 20;
 let maxDragDistance = 200;
+let canPlaceCueBall = false;
+let cueBallPocketed = false;
+let showTrajectory = false;
+let trajectoryLength = 200; 
+let initialPlacement = true;
 
 function setup() {
   console.log("setup() called");
@@ -53,69 +56,97 @@ function setup() {
   world = engine.world;
   engine.world.gravity.y = 0;
   
-  // Initialize table dimensions
+  // Initialize table dimensions with correct proportions
   tableWidth = width * 0.9;
   tableHeight = height * 0.8;
-  ballDiameter = tableWidth / 36;
+  
+  // Adjust ball diameter to be 2% of table width
+  ballDiameter = tableWidth * 0.02;
   pocketSize = ballDiameter * 1.5;
   
-  // D zone positions
-  dZoneRadius = tableWidth / 4;  
-  baulkLineY = height/2;         
+  // D zone parameters - approximately 19.64% of table width
+  dZoneRadius = tableWidth * 0.0982;
+  baulkLineY = height/2;
   
   createTableBounds();
   createPockets();
   initializeBalls();
   setupCollisionTracking();
+  
+  // Set initial state for cue ball placement
+  canPlaceCueBall = true;
+  initialPlacement = true;
 }
 
 function draw() {
-  console.log("draw() called");
   background(220);
   Matter.Engine.update(engine);
   
-  // Update cue angle based on keyboard input
-  if (keyboardControl && arrowKeyPressed) {
+  // Handle keyboard input for cue rotation
+  if (!shotInProgress && !cueBallPocketed && !initialPlacement) {
     if (keyIsDown(LEFT_ARROW)) {
       cueAngle -= angleStep;
     }
     if (keyIsDown(RIGHT_ARROW)) {
       cueAngle += angleStep;
     }
-    cueAngle = cueAngle % TWO_PI;
-  }
-  
-  // Check if shot completed
-  if (shotInProgress && isBallStopped()) {
-    shotInProgress = false;
-    isCueing = true;
   }
   
   drawTable();
   drawBalls();
-  drawCue();
+  
+  // Check if shot completed and all balls stopped
+  if (shotInProgress && isBallStopped()) {
+    shotInProgress = false;
+    if (!cueBallPocketed) {
+      isCueing = true;
+    }
+  }
+  
+  // Only draw cue if were able to shoot
+  if (!shotInProgress && !cueBallPocketed && !initialPlacement) {
+    drawCue();
+  }
+  
+  // Display placement message at start of game or when cue ball is pocketed
+  if (canPlaceCueBall) {
+    fill(255, 0, 0);
+    textSize(20);
+    if (initialPlacement) {
+      text("Click in D zone to place cue ball for break", 10, height - 20);
+    } else {
+      text("Click in D zone to place cue ball", 10, height - 20);
+    }
+  }
+  
   displayGameInfo();
 }
 
 function drawTable() {
   push();
   translate(width/2, height/2);
-  fill(34, 139, 34)
+  
+  // Draw table surface
+  fill(34, 139, 34); 
   rect(-tableWidth/2, -tableHeight/2, tableWidth, tableHeight);
   
-  // Draw D zone line
+  // Draw baulk line
   stroke(255);
   strokeWeight(2);
-  line(-tableWidth/4, -tableHeight/2, -tableWidth/4, tableHeight/2)
+  line(-tableWidth/4, -tableHeight/2, -tableWidth/4, tableHeight/2);
+  
+  // Draw D zone
+  noFill();
+  arc(-tableWidth/4, 0, dZoneRadius * 2, dZoneRadius * 2, HALF_PI, -HALF_PI);
   
   // Draw pockets
   fill(0);
-  circle(-tableWidth/2, -tableHeight/2, pocketSize) 
-  circle(tableWidth/2, -tableHeight/2, pocketSize)  
-  circle(-tableWidth/2, tableHeight/2, pocketSize)  
-  circle(tableWidth/2, tableHeight/2, pocketSize)  
-  circle(0, -tableHeight/2, pocketSize)            
-  circle(0, tableHeight/2, pocketSize)             
+  circle(-tableWidth/2, -tableHeight/2, pocketSize);
+  circle(tableWidth/2, -tableHeight/2, pocketSize);  
+  circle(-tableWidth/2, tableHeight/2, pocketSize);  
+  circle(tableWidth/2, tableHeight/2, pocketSize);   
+  circle(0, -tableHeight/2, pocketSize);            
+  circle(0, tableHeight/2, pocketSize);             
   
   pop();
 }
@@ -178,23 +209,52 @@ function initializeBalls() {
 function setStartingPositions() {
   console.log("setStartingPositions() called");
   
-  // Place cue ball in the D zone
-  Matter.Body.setPosition(cueBall.body, {
-    x: width/2 - tableWidth/3,
-    y: height/2
+  // Stop all ball motion
+  balls.forEach(ball => {
+    Matter.Body.setVelocity(ball.body, { x: 0, y: 0 });
+    Matter.Body.setAngularVelocity(ball.body, 0);
   });
   Matter.Body.setVelocity(cueBall.body, { x: 0, y: 0 });
+  Matter.Body.setAngularVelocity(cueBall.body, 0);
   
-  // Place red balls in triangle formation
-  let startX = width/2 + tableWidth/4;
+  // Reset placement state
+  canPlaceCueBall = true;
+  initialPlacement = true;
+  isCueing = false;
+  
+  // Place colored balls and red balls in their positions
+  const colorPositions = [
+    { x: width/2 - tableWidth/4, y: height/3 }, // Yellow (left of brown)
+    { x: width/2 - tableWidth/4, y: height/3*2 }, // Green (right of brown)
+    { x: width/2 - tableWidth/4, y: height/2 }, // Brown (on baulk line)
+    { x: width/2, y: height/2 }, // Blue (center spot)
+    { x: width/2 + tableWidth/6, y: height/2 }, // Pink (pyramid spot)
+    { x: width/2 + tableWidth/2.8, y: height/2 } // Black (near top cushion)
+  ];
+  
+  // Set colored balls positions
+  for (let i = 0; i < colorPositions.length; i++) {
+    Matter.Body.setPosition(balls[i + 15].body, colorPositions[i]);
+  }
+  
+  let startX = width/2 + tableWidth/4.1; // Start from above pink spot
   let startY = height/2;
   let rows = 5;
   let ballIndex = 0;
+  let spacing = ballDiameter * 1.1; 
+  let angle = -PI/-2; 
   
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col <= row; col++) {
-      let xPos = startX + col * ballDiameter - (row * ballDiameter/2);
-      let yPos = startY - (row * ballDiameter) + (rows * ballDiameter/2);
+      // Calculate original position
+      let x = col * spacing - (row * spacing/2);
+      let y = -(row * spacing) + (rows * spacing/2);
+      
+      // Apply rotation
+      let rotatedX = x * cos(angle) - y * sin(angle);
+      let rotatedY = x * sin(angle) + y * cos(angle);
+      let xPos = startX + rotatedX;
+      let yPos = startY + rotatedY;
       
       Matter.Body.setPosition(balls[ballIndex].body, {
         x: xPos,
@@ -203,39 +263,18 @@ function setStartingPositions() {
       ballIndex++;
     }
   }
-  
-  // Place colored balls in their positions
-  let colorPositions = [
-    { x: width/2 - tableWidth/4, y: baulkLineY },  // Yellow
-    { x: width/2 - tableWidth/6, y: baulkLineY },  // Green
-    { x: width/2, y: baulkLineY },                 // Brown
-    { x: width/2, y: height/2 },                   // Blue
-    { x: startX - 2*ballDiameter, y: height/2 },   // Pink
-    { x: width/2 + tableWidth/3, y: height/2 }     // Black
-  ];
-  
-  for (let i = 0; i < colorPositions.length; i++) {
-    Matter.Body.setPosition(balls[i + 15].body, {
-      x: colorPositions[i].x,
-      y: colorPositions[i].y
-    });
-  }
 }
 
 function keyPressed() {
-  console.log("keyPressed() called");
-  if (keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW) {
-    keyboardControl = true;
-    arrowKeyPressed = true;
-  }
-  
-  // Number keys for ball positioning
-  if (key === '1') {
+  // Number keys for ball positioning and features
+  if (key === '1' && !shotInProgress && isBallStopped()) {
     setStartingPositions();
-  } else if (key === '2') {
+  } else if (key === '2' && !shotInProgress && isBallStopped()) {
     randomizeRedBalls();
-  } else if (key === '3') {
+  } else if (key === '3' && !shotInProgress && isBallStopped()) {
     randomizeAllBalls();
+  } else if (key === '4') {
+    showTrajectory = !showTrajectory;
   }
 }
 
@@ -247,21 +286,30 @@ function keyReleased() {
 }
 
 function randomizeRedBalls() {
-  for (let ball of redBalls) {
-    ball.x = random(width/2 - tableWidth/2 + pocketSize, 
-                    width/2 + tableWidth/2 - pocketSize);
-    ball.y = random(height/2 - tableHeight/2 + pocketSize, 
-                    height/2 + tableHeight/2 - pocketSize);
+  // Only randomize the first 15 balls (red balls)
+  for (let i = 0; i < 15; i++) {
+    let newX = random(width/2 - tableWidth/2 + pocketSize, width/2 + tableWidth/2 - pocketSize);
+    let newY = random(height/2 - tableHeight/2 + pocketSize, height/2 + tableHeight/2 - pocketSize);
+    
+    Matter.Body.setPosition(balls[i].body, {
+      x: newX,
+      y: newY
+    });
+    Matter.Body.setVelocity(balls[i].body, { x: 0, y: 0 });
   }
 }
 
 function randomizeAllBalls() {
-  randomizeRedBalls();
-  for (let ball of coloredBalls) {
-    ball.x = random(width/2 - tableWidth/2 + pocketSize, 
-                    width/2 + tableWidth/2 - pocketSize);
-    ball.y = random(height/2 - tableHeight/2 + pocketSize, 
-                    height/2 + tableHeight/2 - pocketSize);
+  // Randomize all balls except the cue ball
+  for (let i = 0; i < balls.length; i++) {
+    let newX = random(width/2 - tableWidth/2 + pocketSize, width/2 + tableWidth/2 - pocketSize);
+    let newY = random(height/2 - tableHeight/2 + pocketSize, height/2 + tableHeight/2 - pocketSize);
+    
+    Matter.Body.setPosition(balls[i].body, {
+      x: newX,
+      y: newY
+    });
+    Matter.Body.setVelocity(balls[i].body, { x: 0, y: 0 });
   }
 }
 
@@ -269,10 +317,10 @@ function createPockets() {
   console.log("createPockets() called");
   const pocketPositions = [
     { x: width/2 - tableWidth/2, y: height/2 - tableHeight/2 }, // Top left
-    { x: width/2, y: height/2 - tableHeight/2 },                // Top middle
+    { x: width/2, y: height/2 - tableHeight/2 }, // Top middle
     { x: width/2 + tableWidth/2, y: height/2 - tableHeight/2 }, // Top right
     { x: width/2 - tableWidth/2, y: height/2 + tableHeight/2 }, // Bottom left
-    { x: width/2, y: height/2 + tableHeight/2 },                // Bottom middle
+    { x: width/2, y: height/2 + tableHeight/2 }, // Bottom middle
     { x: width/2 + tableWidth/2, y: height/2 + tableHeight/2 }  // Bottom right
   ];
 
@@ -305,7 +353,13 @@ function handlePocketCollision(ball) {
   let pottedBall = balls.find(b => b.body === ball);
   
   if (ball === cueBall.body) {
-    respotCueBall();
+    Matter.World.remove(world, ball);
+    cueBallPocketed = true;
+    shotInProgress = false;
+    // Wait for all balls to stop before allowing placement
+    if (isBallStopped()) {
+      respotCueBall();
+    }
   } else if (pottedBall) {
     if (pottedBall.color === '#FF0000') {
       Matter.World.remove(world, ball);
@@ -318,44 +372,53 @@ function handlePocketCollision(ball) {
 
 function respotCueBall() {
   console.log("respotCueBall() called");
+  // Add cue ball back
+  Matter.World.add(world, cueBall.body);
   // Place cue ball in the middle of the D zone
   Matter.Body.setPosition(cueBall.body, {
-    x: width/2 - tableWidth/3,  
-    y: height/2                 
+    x: width/2 - tableWidth/3,
+    y: height/2
   });
   Matter.Body.setVelocity(cueBall.body, { x: 0, y: 0 });
+  canPlaceCueBall = true;
+  cueBallPocketed = false;
 }
 
 function respotColoredBall(ball) {
   console.log("respotColoredBall() called");
   const colorPositions = [
-    { x: width/2 - tableWidth/4, y: baulkLineY },  // Yellow
-    { x: width/2 - tableWidth/6, y: baulkLineY },  // Green
-    { x: width/2, y: baulkLineY },                 // Brown
-    { x: width/2, y: height/2 },                   // Blue
-    { x: width/2 + tableWidth/4, y: height/2 },    // Pink
-    { x: width/2 + tableWidth/3, y: height/2 }     // Black
+    { x: width/2 - tableWidth/3, y: height/2 - ballDiameter }, // Yellow
+    { x: width/2 - tableWidth/3, y: height/2 + ballDiameter }, // Green
+    { x: width/2 - tableWidth/4, y: height/2 },                // Brown
+    { x: width/2, y: height/2 },                              // Blue
+    { x: width/2 + tableWidth/4, y: height/2 },               // Pink
+    { x: width/2 + tableWidth/3, y: height/2 }                // Black
   ];
   
   const index = balls.indexOf(ball);
-  const spotPosition = colorPositions[index - 15]; 
-  
-  Matter.Body.setPosition(ball.body, spotPosition);
-  Matter.Body.setVelocity(ball.body, { x: 0, y: 0 });
+  if (index >= 15 && index < balls.length) {
+    const spotPosition = colorPositions[index - 15]; 
+    Matter.Body.setPosition(ball.body, spotPosition);
+    Matter.Body.setVelocity(ball.body, { x: 0, y: 0 });
+  }
 }
 
 function drawCue() {
-  console.log("drawCue() called");
   if (!isCueing || shotInProgress) return;
   
   const cuePos = cueBall.body.position;
   
   // Calculate power based on drag distance
-  let power = defaultPower;
+  let power = 0;
   if (isDragging && dragStartPos) {
     let dragDistance = dist(mouseX, mouseY, dragStartPos.x, dragStartPos.y);
     power = constrain(dragDistance / 100, 0, 1); 
     cuePower = power * maxPower;
+  }
+  
+  // Draw trajectory line if enabled
+  if (showTrajectory) {
+    drawTrajectoryLine(cuePos);
   }
   
   push();
@@ -375,8 +438,8 @@ function drawCue() {
   
   pop();
   
-  // Draw power indicator
-  if (isDragging || keyboardControl) {
+  // Only draw power indicator when actively dragging
+  if (isDragging && dragStartPos) {
     drawPowerIndicator(power);
   }
 }
@@ -404,18 +467,27 @@ function drawPowerIndicator(power) {
 }
 
 function mousePressed() {
-
-  const cuePos = cueBall.body.position;
-  const d = dist(mouseX, mouseY, cuePos.x, cuePos.y);
-  
-  if (d < ballDiameter * 2) {
-    isCueing = true;
-    isDragging = true;
-    dragStartPos = createVector(mouseX, mouseY);
-  } else if (isInsideDZone(mouseX, mouseY)) {
+  if (canPlaceCueBall && isInsideDZone(mouseX, mouseY)) {
     // Allow placing the cue ball in D zone
     Matter.Body.setPosition(cueBall.body, { x: mouseX, y: mouseY });
     Matter.Body.setVelocity(cueBall.body, { x: 0, y: 0 });
+    
+    if (initialPlacement) {
+      initialPlacement = false;
+    }
+    canPlaceCueBall = false;
+    isCueing = true;
+  } else if (!shotInProgress && !cueBallPocketed) {
+    // Normal cue stick interaction
+    const cuePos = cueBall.body.position;
+    const d = dist(mouseX, mouseY, cuePos.x, cuePos.y);
+    
+    if (d < ballDiameter * 2) {
+      isCueing = true;
+      isDragging = true;
+      dragStartPos = createVector(mouseX, mouseY);
+      cuePower = 0;
+    }
   }
 }
 
@@ -434,15 +506,17 @@ function mouseDragged() {
 }
 
 function mouseReleased() {
-  console.log("mouseReleased() called");
   if (isDragging) {
     if (cuePower > minPower) {
       executeShot();
     }
     isDragging = false;
-    isCueing = false;
-    cuePower = 0;
     dragStartPos = null;
+  }
+  
+  if (canPlaceCueBall && isInsideDZone(mouseX, mouseY)) {
+    canPlaceCueBall = false;
+    isCueing = true;
   }
 }
 
@@ -470,7 +544,6 @@ function displayGameInfo() {
 }
 
 function setupCollisionTracking() {
-  console.log("setupCollisionTracking() called");
   Matter.Events.on(engine, 'collisionStart', function(event) {
     event.pairs.forEach((pair) => {
       if (pair.bodyA === cueBall.body || pair.bodyB === cueBall.body) {
@@ -546,26 +619,27 @@ function createTableBounds() {
 
 function isInsideDZone(x, y) {
   console.log("isInsideDZone() called");
-  const dZoneCenterX = width/2 - tableWidth/3;
+  const dZoneCenterX = width/2 - tableWidth/4;
   const dZoneCenterY = height/2;
-  const dZoneRadius = tableWidth / 6;
+  
+  // Check if point is within the D zone semicircle
+  if (x > dZoneCenterX) return false; // Point is right of the baulk line
   
   const distance = dist(x, y, dZoneCenterX, dZoneCenterY);
   return distance <= dZoneRadius;
 }
 
 function executeShot() {
-  console.log("executeShot() called");
   if (!isCueing || shotInProgress) return;
   
-  const power = isDragging ? cuePower : defaultPower;
-  const forceMagnitude = power * 0.08;
-  const force = {
-    x: cos(cueAngle + PI) * forceMagnitude,
-    y: sin(cueAngle + PI) * forceMagnitude
-  };
+  const force = cuePower;
+  const angle = cueAngle + PI; // Add PI to reverse direction
   
-  Matter.Body.applyForce(cueBall.body, cueBall.body.position, force);
+  Matter.Body.setVelocity(cueBall.body, {
+    x: cos(angle) * force,
+    y: sin(angle) * force
+  });
+  
   shotInProgress = true;
   isCueing = false;
   isDragging = false;
@@ -573,7 +647,49 @@ function executeShot() {
 }
 
 function isBallStopped() {
-  const velocity = cueBall.body.velocity;
-  const speedThreshold = 0.01;
-  return Math.abs(velocity.x) < speedThreshold && Math.abs(velocity.y) < speedThreshold;
+  // Check if all balls have stopped moving
+  let allStopped = true;
+  const velocityThreshold = 0.01;
+  
+  balls.forEach(ball => {
+    const velocity = ball.body.velocity;
+    if (Math.abs(velocity.x) > velocityThreshold || Math.abs(velocity.y) > velocityThreshold) {
+      allStopped = false;
+    }
+  });
+  
+  if (!cueBallPocketed) {
+    const cueVelocity = cueBall.body.velocity;
+    if (Math.abs(cueVelocity.x) > velocityThreshold || Math.abs(cueVelocity.y) > velocityThreshold) {
+      allStopped = false;
+    }
+  }
+  
+  return allStopped;
+}
+
+function drawTrajectoryLine(cuePos) {
+  push();
+  // Set line style for trajectory
+  stroke(255, 255, 255, 150); 
+  strokeWeight(2);
+  setLineDash([5, 5]); // Dashed line
+  
+  // Calculate end point of trajectory line
+  let endX = cuePos.x + cos(cueAngle + PI) * trajectoryLength;
+  let endY = cuePos.y + sin(cueAngle + PI) * trajectoryLength;
+  
+  // Draw the line
+  line(cuePos.x, cuePos.y, endX, endY);
+  
+  // Draw a small circle at the end of the line
+  noStroke();
+  fill(255, 255, 255, 150);
+  circle(endX, endY, 5);
+  
+  pop();
+}
+
+function setLineDash(list) {
+  drawingContext.setLineDash(list);
 }
